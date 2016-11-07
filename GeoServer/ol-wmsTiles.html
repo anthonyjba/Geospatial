@@ -9,7 +9,32 @@
   </head>
   <body>
     <div id="map" class="map"></div>
+    <div style="display: none;">
+      <!-- Overlay with the country info -->
+      <div id="country-info">
+        <div id="country-name">&nbsp;</div>
+        <img id="country-flag" src="" />
+      </div>
+    </div>
     <script>
+      var geoserverGrid = new ol.source.TileUTFGrid({
+        tileJSON: {
+            "jsonp": true,
+            "attribution": "",
+            "bounds": [-13884991, 2870341, -7455066, 6338219],
+            "grids": ["http://10.57.224.240/geoserver/gwc/service/wms?LAYERS=Postgres:zonavalor&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&SRS=EPSG%3A4258&bbox=-2.1625,32.88,4.80625,39.84875&width=256&height=256&srs=EPSG:4258&format=application/json;type=utfgrid"],            
+            "maxzoom": 8,
+            "minzoom": 0,
+            "scheme": "xyz",
+            "tilejson": "2.0.0",
+            "tiles": ["http://10.57.224.240/geoserver/gwc/service/wmts/?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.1.1&LAYER=Postgres:zonavalor&STYLE=_null&TILEMATRIXSET=EPSG:4258&TILEMATRIX=EPSG:4258:{z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png"],
+            "version": "1.0.0"
+        },
+        "jsonp": true,
+      });
+
+      var gridLayer = new ol.layer.Tile({source: geoserverGrid});
+      
       var layers = [
         new ol.layer.Tile({
           source: new ol.source.OSM()
@@ -18,18 +43,62 @@
           /*extent: [-13884991, 2870341, -7455066, 6338219],*/
           source: new ol.source.TileWMS({
             url: 'http://10.57.224.240/geoserver/Postgres/wms',
-            params: {'LAYERS': 'Postgres:zonavalor', 'TILED': true},
+            params: {'LAYERS': 'Postgres:zonavalor', 'TILED': true, 'STYLES': 'zona_valor_tematico'},
             serverType: 'geoserver'
           })
-        })
+        }),
+        gridLayer
       ];
+      
+      var view = new ol.View({
+        center: ol.proj.transform([-3.70275,40.41831], 'EPSG:4326', 'EPSG:3857'),
+        zoom: 6
+      });
+      
+      var mapElement = document.getElementById('map');
       var map = new ol.Map({
         layers: layers,
         target: 'map',
-        view: new ol.View({
-          center : ol.proj.transform([-3.70275,40.41831], 'EPSG:4326', 'EPSG:3857'),
-          zoom: 6
-        })
+        view: view
+      });
+      
+      var infoElement = document.getElementById('country-info');
+      var flagElement = document.getElementById('country-flag');
+      var nameElement = document.getElementById('country-name');
+
+      var infoOverlay = new ol.Overlay({
+        element: infoElement,
+        offset: [15, 15],
+        stopEvent: false
+      });
+      map.addOverlay(infoOverlay);
+
+      var displayCountryInfo = function(coordinate) {
+        var viewResolution = /** @type {number} */ (view.getResolution());
+        geoserverGrid.forDataAtCoordinateAndResolution(coordinate, viewResolution,
+            function(data) {
+              // If you want to use the template from the TileJSON,
+              //  load the mustache.js library separately and call
+              //  info.innerHTML = Mustache.render(gridSource.getTemplate(), data);
+              mapElement.style.cursor = data ? 'pointer' : '';
+              if (data) {
+                flagElement.src = 'data:image/png;base64,' + data['flag_png'];
+                nameElement.innerHTML = data['admin'];
+              }
+              infoOverlay.setPosition(data ? coordinate : undefined);
+            });
+      };
+
+      /*map.on('pointermove', function(evt) {
+        if (evt.dragging) {
+          return;
+        }
+        var coordinate = map.getEventCoordinate(evt.originalEvent);
+        displayCountryInfo(coordinate);
+      });*/
+
+      map.on('click', function(evt) {
+        displayCountryInfo(evt.coordinate);
       });
     </script>
   </body>
