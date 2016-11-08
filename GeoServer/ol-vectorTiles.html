@@ -18,6 +18,13 @@
 <body>
   <h3>Mapbox Protobuf - vector tiles</h3>
   <div id="map" class="map"></div>
+  <div style="display: none;">
+      <!-- Overlay with the country info -->
+      <div id="country-info">
+        <div id="country-name">&nbsp;</div>
+        <img id="country-flag" src="" />
+      </div>
+    </div>
   <script>
 
   var style_simple = new ol.style.Style({
@@ -35,8 +42,8 @@
   }
 
   var layer = 'Postgres:zonavalor'; //'opengeo:countries' [0,0] 2;
-  var projection_epsg_no = '4326'; //'900913';
-  var map = new ol.Map({
+  var projection_epsg_no = '4258'; //'900913';
+  /*var map = new ol.Map({
     target: 'map',
     view: new ol.View({
       center: ol.proj.transform([-3.70275,40.41831], 'EPSG:4326', 'EPSG:3857'),
@@ -52,7 +59,36 @@
             '@EPSG%3A'+projection_epsg_no+'@pbf/{z}/{x}/{-y}.pbf'
       })
     })]
+  });*/
+  
+  /***TILEGRID**/
+  var startResolution =
+          ol.extent.getWidth(ol.proj.get('EPSG:3857').getExtent()) / 256;
+  var resolutions = new Array(22);
+      for (var i = 0, ii = resolutions.length; i < ii; ++i) {
+        resolutions[i] = startResolution / Math.pow(2, i);
+      }
+      
+  var map = new ol.Map({
+    target: 'map',
+    view: new ol.View({
+      center: ol.proj.transform([-3.70275,40.41831], 'EPSG:4326', 'EPSG:3857'),
+      zoom: 7
+    }),
+    layers: [
+      new ol.layer.Tile({
+          source: new ol.source.OSM()
+        }),
+      new ol.layer.Tile({
+          /*extent: [-13884991, 2870341, -7455066, 6338219],*/
+          source: new ol.source.TileWMS({
+            url: 'http://10.57.224.240/geoserver/Postgres/wms',
+            params: {'LAYERS': 'Postgres:zonavalor', 'TILED': true, 'STYLES': 'zona_valor_tematico'},
+            serverType: 'geoserver'
+          })
+      })]
   });
+  
   </script>
 </body>
 </html>

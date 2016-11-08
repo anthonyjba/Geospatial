@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vector tiles</title>
+  <script src="../assets/jquery/jquery-1.9.1.js"></script>
+  <script src="../assets/leaflet/leaflet.js"></script>
+  <link rel="stylesheet" href="../assets/leaflet/leaflet.css">
+  <style>
+    html, body {
+      font-family: sans-serif;
+      width: 100%;
+    }
+    .map {
+      height: 500px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h3>Leaflet - Geoserver WFS</h3>
+  <div id="map" class="map"></div>
+  <div style="display: none;">
+      <!-- Overlay with the country info -->
+      <div id="country-info">
+        <div id="country-name">&nbsp;</div>
+        <img id="country-flag" src="" />
+      </div>
+    </div>
+  <script>
+    var geoserverUrl = "http://10.57.224.240/geoserver/";
+    var geoserverWorkspace = "Postgres";
+    var geoserverLayer = "zonavalor";
+    var delegacion = 46;
+    var municipio = 900;
+
+        
+        // Create map
+        var map = L.map('map').setView([39.451008,-0.3649525], 10);
+        L.tileLayer('http://{s}.tile.stamen.com/toner/{z}/{x}/{y}.png', {
+          maxZoom: 18,
+          attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery <a href="http://stamen.com">Stamen</a>'
+        }).addTo(map);
+        
+        // Set wfs server url
+        var geoJsonUrl = geoserverUrl +
+        "wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=" + geoserverWorkspace + ":" + geoserverLayer + 
+        "&CQL_FILTER=delegacion%20=%20'" + delegacion + "'" + "%20AND%20municipio%20=%20'" + municipio + "'" +
+        "&outputFormat=text/javascript&format_options=callback:processJSON"; //&sortBy=time
+        
+        var infoElement = document.getElementById('country-info');
+        var flagElement = document.getElementById('country-flag');
+        var nameElement = document.getElementById('country-name');
+      
+        // On feature click call the update latest tab function  
+        function onEachFeature(feature, layer) {
+          layer.on('click', function (e) {
+            //updateTabs(e)
+
+            // Request the chart/table data for the selected 
+            var selected = e.target.feature.properties.zona_valor;
+            nameElement.innerHTML = selected;
+            infoElement.style.display = "block";
+          });
+        }
+        
+        $.ajax(geoJsonUrl,
+          { dataType: "jsonp" }
+        ).done(function ( data ) {
+        });
+                
+      function processJSON(data) {
+        window.ZonasValor = data; 
+
+        // Add points from json data
+        window.Points = L.geoJson(window.ZonasValor,{
+            onEachFeature: onEachFeature,
+            pointToLayer: function (feature, latlng) {
+              return L.marker(latlng, {
+                icon: getIcon(feature.properties.type,'unhighlight')
+              });
+            }
+        }).addTo(map);
+      };
+
+
+        
+        /*window.map = L.map('map', {
+          center: new L.LatLng(lat,lng),
+          zoom: zoom,
+          maxBounds: mapBounds,
+          minZoom: 17,
+          layers: [baseLayer,pipeline_cool,pipeline_warm],
+          attributionControl: false
+        });
+      
+  var map = new ol.Map({
+    target: 'map',
+    view: new ol.View({
+      center: ol.proj.transform([-3.70275,40.41831], 'EPSG:4326', 'EPSG:3857'),
+      zoom: 7
+    }),
+    layers: [
+      new ol.layer.Tile({
+          source: new ol.source.OSM()
+        }),
+      new ol.layer.Tile({
+          /*extent: [-13884991, 2870341, -7455066, 6338219],
+          source: new ol.source.TileWMS({
+            url: 'http://10.57.224.240/geoserver/Postgres/wms',
+            params: {'LAYERS': 'Postgres:zonavalor', 'TILED': true, 'STYLES': 'zona_valor_tematico'},
+            serverType: 'geoserver'
+          })
+      })]
+  });*/
+  
+  </script>
+</body>
+</html>

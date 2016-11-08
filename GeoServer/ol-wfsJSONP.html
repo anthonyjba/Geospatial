@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Tiled WMS</title>
+    <link rel="stylesheet" href="http://openlayers.org/en/v3.4.0/css/ol.css" type="text/css">
+    <!-- The line below is only needed for old environments like Internet Explorer and Android 4.x -->
+    <script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=requestAnimationFrame,Element.prototype.classList,URL"></script>
+    <script src="http://openlayers.org/en/v3.4.0/build/ol.js"></script>
+    <script
+  src="https://code.jquery.com/jquery-3.1.1.min.js"
+  integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+  crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div id="map" class="map"></div>
+    <div style="display: none;">
+      <!-- Overlay with the country info -->
+      <div id="country-info">
+        <div id="country-name">&nbsp;</div>
+        <img id="country-flag" src="" />
+      </div>
+    </div>
+    <script>
+      // Source retrieving WFS data in GeoJSON format using JSONP technique
+      var vectorSourceJsonp = new ol.source.ServerVector({
+          format: new ol.format.GeoJSON(),
+          loader: function(extent, resolution, projection) {
+              var url = 'http://10.57.224.240/geoserver/wfs?'+
+                  'service=WFS&request=GetFeature&'+
+                  'version=1.1.0&typename=Postgres:zonavalor&'+
+                  'outputFormat=text/javascript&'+
+                  'format_options=callback:loadFeatures&' +
+                  'srsname=EPSG:4258&'+
+                  'bbox=' + extent.join(',');
+
+              $.ajax({
+                  url: url,
+                  dataType: 'jsonp'
+              });
+          },
+          strategy: ol.loadingstrategy.createTile(new ol.tilegrid.XYZ({
+              maxZoom: 19
+          })),
+          projection: 'EPSG:4258'
+      });
+
+      // Executed when data is loaded by the $.ajax method.
+      var loadFeatures = function(response) {
+          vectorSourceJsonp.addFeatures(vectorSourceJsonp.readFeatures(response));
+      };
+
+      // Vector layer
+      var vectorLayerJsonp = new ol.layer.Vector({
+          source: vectorSourceJsonp,
+          style: new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                  color: 'green',
+                  width: 2
+              })
+          })
+      });
+
+      var layers = [
+        new ol.layer.Tile({
+          source: new ol.source.OSM()
+        }),
+        vectorLayerJsonp
+      ];
+      
+      var view = new ol.View({
+        center: ol.proj.transform([-3.70275,40.41831], 'EPSG:4326', 'EPSG:3857'),
+        zoom: 6
+      });
+      
+      var mapElement = document.getElementById('map');
+      var map = new ol.Map({
+        layers: layers,
+        target: 'map',
+        renderer: 'canvas',
+        view: view
+      });
+      
+      var infoElement = document.getElementById('country-info');
+      var flagElement = document.getElementById('country-flag');
+      var nameElement = document.getElementById('country-name');
+
+      var infoOverlay = new ol.Overlay({
+        element: infoElement,
+        offset: [15, 15],
+        stopEvent: false
+      });
+      map.addOverlay(infoOverlay);
+
+      var displayCountryInfo = function(coordinate) {
+        var viewResolution = /** @type {number} */ (view.getResolution());
+        geoserverGrid.forDataAtCoordinateAndResolution(coordinate, viewResolution,
+            function(data) {
+              // If you want to use the template from the TileJSON,
+              //  load the mustache.js library separately and call
+              //  info.innerHTML = Mustache.render(gridSource.getTemplate(), data);
+              mapElement.style.cursor = data ? 'pointer' : '';
+              if (data) {
+                flagElement.src = 'data:image/png;base64,' + data['flag_png'];
+                nameElement.innerHTML = data['admin'];
+              }
+              infoOverlay.setPosition(data ? coordinate : undefined);
+            });
+      };
+
+      /*map.on('pointermove', function(evt) {
+        if (evt.dragging) {
+          return;
+        }
+        var coordinate = map.getEventCoordinate(evt.originalEvent);
+        displayCountryInfo(coordinate);
+      });*/
+
+      map.on('click', function(evt) {
+        displayCountryInfo(evt.coordinate);
+      });
+    </script>
+  </body>
+</html>
